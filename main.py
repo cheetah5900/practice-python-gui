@@ -1,14 +1,29 @@
+from asyncio import events
 from datetime import datetime  # for date time using
 from tkinter import *  # import all tkinter
 from tkinter import ttk  # import modern tkinter
 import csv
-from tkinter import messagebox  # import csv
+from tkinter import messagebox
+from unittest import registerResult  # import csv
 
 
 # ---- GUI SETTING ---- #
 GUI = Tk()  # create instance
 GUI.title('ฟอร์มเพิ่มข้อมูล')  # set title
-GUI.geometry('500x650+500+50')  # set windows size + position x / position y
+# GUI.geometry('500x650+500+50')  # set windows size + position x / position y
+# set GUI at center of screen 
+w = 650
+h = 700
+
+ws = GUI.winfo_screenwidth() #screen width
+hs = GUI.winfo_screenheight() #screen height
+
+
+x = (ws/2) - (w/2)
+y = (hs/2) - (h/2)
+
+GUI.geometry(f'{w}x{h}+{x:.0f}+{y:.0f}')
+
 
 ## ---- MENU BAR ---- ##
 menuBar = Menu(GUI)  # create Menu Bar for main GUI
@@ -161,7 +176,7 @@ entryProductQuantity = ttk.Entry(
 entryProductQuantity.pack()  # input product quantity
 
 
-# ---- BUTTON ---- #
+# ---- SAVE BUTTON ---- #
 iconButton1 = PhotoImage(file='image/edit_icon.png')  # get image from pc
 # create button in frame1, when click will activate AddData function
 button1 = ttk.Button(frame1, text="Save", image=iconButton1,
@@ -212,8 +227,6 @@ allTransaction = {}  # create enpty dictionary
 
 
 def updateCsv():
-    check = messagebox.askyesno('Confirm', 'ต้องการลบใช่หรือไม่')
-    if check == True:
         with open('savedata.csv', 'w', newline='', encoding='utf-8') as f:
             fw = csv.writer(f)
             # set allTransaction as list because write data into csv file need to be list
@@ -224,9 +237,6 @@ def updateCsv():
             listAllTransaction = list(valueAllTransaction)
             # write multiple line [ [],[],[] ]
             fw.writerows(listAllTransaction)
-            print('Write done')
-    else:
-        pass
 
 
 def updateTable():  # function for updating table in tab2
@@ -259,11 +269,16 @@ def deleteData(event=None):
     # get id from selection record ,Return as special ascii
     selectedId = resultTable.selection()
     data = resultTable.item(selectedId)  # get row by id, Return as object
-    id = data['values'][0]  # get key 'values' from object
+    id = data['values'][0]  # get key 'values' from object, order0 is pk of object
     transactionId = str(id)
     # delete selected key, value that we get from selected is int
     del allTransaction[transactionId]
-    updateCsv()
+    
+    check = messagebox.askyesno('Confirm', 'ต้องการลบใช่หรือไม่')
+    if check == True:
+        updateCsv()
+    else:
+        pass
     updateTable()
 
 
@@ -271,8 +286,107 @@ def deleteData(event=None):
 deleteButton = ttk.Button(tab2, text='Delete', command=deleteData)
 deleteButton.place(x=50, y=250)
 
+# ---- RIGHT CLICK FOR MENU ---- #
+
+
+def menuPopUp(event):  # menu popup list of properties
+    # set list appear at right click position
+    rightClick.post(event.x_root, event.y_root)
+# ---- EDIT SECTION ---- #
+
+def editData():
+    popupEdit = Toplevel()  # คล้ายๆกับ tk แต่จะเพิ่มได้หลายหน้าต่างมากกว่า tk
+    popupEdit.title('Edit Record')
+    # popupEdit.geometry('500x500')
+    # set popupEdit at center of screen 
+    w = 650
+    h = 700
+
+    ws = popupEdit.winfo_screenwidth() #screen width
+    hs = popupEdit.winfo_screenheight() #screen height
+
+
+    x = (ws/2) - (w/2)
+    y = (hs/2) - (h/2)
+
+    popupEdit.geometry(f'{w}x{h}+{x:.0f}+{y:.0f}')
+
+    # create variable as string
+    product_name = StringVar()
+    product_price = StringVar()
+    product_quantity = StringVar()
+
+    labelProductName = ttk.Label(
+        popupEdit, text="ชื่อสินค้า", font=fontPrompt)
+    labelProductName.pack()  # label product name
+
+    entryProductName = ttk.Entry(
+        popupEdit, textvariable=product_name, font=fontPrompt)
+    entryProductName.pack()  # input product name
+
+    labelProductPrice = ttk.Label(
+        popupEdit, text="ราคา", font=fontPrompt)
+    labelProductPrice.pack()  # label product price
+
+    entryProductPrice = ttk.Entry(
+        popupEdit, textvariable=product_price, font=fontPrompt)
+    entryProductPrice.pack()  # input product price
+
+    labelProductQuantity = ttk.Label(
+        popupEdit, text="จำนวน", font=fontPrompt)
+    labelProductQuantity.pack()  # label product quantity
+
+    entryProductQuantity = ttk.Entry(
+        popupEdit, textvariable=product_quantity, font=fontPrompt)
+    entryProductQuantity.pack()  # input product quantity
+
+    # ---- UPDATE FUNCTION ---- #
+    def updateData():
+
+        productName = product_name.get()# get data from input
+        productPrice = float(product_price.get())# get data from input
+        productQuantity = int(product_quantity.get())# get data from input
+        print('transactionId ',transactionId)
+        oldData = allTransaction[str(transactionId)] # transactionId come with edit popup
+        newData = [oldData[0],oldData[1],productName,productPrice,productQuantity]
+        allTransaction[transactionId] = newData
+        updateCsv() # update csv file
+        updateTable() # update table in program
+        popupEdit.destroy() # close edit popup
+
+    # ---- SAVE BUTTON ---- #
+    iconButton1 = PhotoImage(file='image/edit_icon.png')  # get image from pc
+    # create button in popupEdit, when click will activate AddData function
+    button1 = ttk.Button(popupEdit, text="Save", image=iconButton1,
+                         compound='top', command=updateData)
+    # set button at center of popupEdit, ipadx,y is padding for button and pady is margin
+    button1.pack(ipadx=50, ipady=20, pady=20)
+
+    # get id from selection record ,Return as special ascii
+    selectedId = resultTable.selection()
+    data = resultTable.item(selectedId)  # get row by id, Return as object
+    print(data)
+    data = data['values']  # get key 'values' from object
+
+    transactionId = data[0]
+    product_name.set(data[2]) # set old data for variable
+    product_price.set(data[3]) # set old data for variable
+    product_quantity.set(data[4]) # set old data for variable
+    popupEdit.mainloop()
+
+
+# create menu which workable in resultTable only
+rightClick = Menu(resultTable, tearoff=0)
+# add list Edit to right click
+rightClick.add_command(label='Edit', command=editData)
+# add list Delete to right click
+rightClick.add_command(label='Delete', command=deleteData)
+
+
+resultTable.bind('<Button-3>', menuPopUp)  # set right click to run function
+
 # ---- SHORTCUT ---- #
 GUI.bind('<Return>', AddData)  # set Enter button to start AddData function
-resultTable.bind('<Delete>',deleteData)
+resultTable.bind('<Delete>', deleteData)
 
 GUI.mainloop()  # set gui still show, not automaticcally shutdown itself
