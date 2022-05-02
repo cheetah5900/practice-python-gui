@@ -6,17 +6,71 @@ import csv
 from tkinter import messagebox
 from unittest import registerResult  # import csv
 
+## ---- SQLLITE3 ---- ##
+import sqlite3  # import sqllite
+
+conn = sqlite3.connect('expense.sqlite3')  # create Database
+
+c = conn.cursor()  # create operator for doing anything
+
+'''
+create table
+'ID' => transaction_id TEXT,
+'วัน-เวลา' => date_time TEXT,
+'รายการ' => title TEXT,
+'ค่าใช้จ่าย' => price REAL,
+'จำนวน' => quantity INTEGER
+'''
+c.execute(""" CREATE TABLE IF NOT EXISTS expenselist(
+                        ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                        transaction_id TEXT,
+                        date_time TEXT,
+                        title TEXT,
+                        price REAL,
+                        quantity INTEGER
+                        )
+                """)
+
+
+def insertSqlData(transaction_id, date_time, title, price, quantity):  # insert data funciton
+    ID = None  # id auto increasement doesn't need to add data
+    with conn:  # open db without exit database
+        c.execute("""INSERT INTO expenselist VALUES (?,?,?,?,?,?)""",
+                  (ID, transaction_id, date_time, title, price, quantity))  # insert command
+    conn.commit()
+
+
+def showSqlData():  # function show data
+    with conn:  # open db without exit database
+        c.execute("""SELECT * FROM expenselist""")  # get all data
+        result = c.fetchall()  # get value in c variable
+    return result
+
+
+def updateSqlData(transaction_id, title, price, quantity):  # update sql data
+    with conn:  # open db without exit database
+        c.execute("""UPDATE expenselist SET title=?, price=?, quantity=? WHERE transaction_id=?""", ([
+                  title, price, quantity, transaction_id]))  # sql command to update database
+    conn.commit()  # save
+
+
+def deleteSqlData(transaction_id):
+    with conn:
+        c.execute("""DELETE FROM expenselist WHERE transaction_id=?""",
+                  ([transaction_id]))
+    conn.commit()
+
 
 # ---- GUI SETTING ---- #
 GUI = Tk()  # create instance
 GUI.title('ฟอร์มเพิ่มข้อมูล')  # set title
 # GUI.geometry('500x650+500+50')  # set windows size + position x / position y
-# set GUI at center of screen 
+# set GUI at center of screen
 w = 650
 h = 700
 
-ws = GUI.winfo_screenwidth() #screen width
-hs = GUI.winfo_screenheight() #screen height
+ws = GUI.winfo_screenwidth()  # screen width
+hs = GUI.winfo_screenheight()  # screen height
 
 
 x = (ws/2) - (w/2)
@@ -140,6 +194,8 @@ def AddData(event=None):
         fw.writerow(data)  # write data
 
     entryProductName.focus()  # set focus at product name
+    insertSqlData(id, thaiDayWithFullDate, productName,
+                  productPrice, productQuantity)
     updateTable()
 
 
@@ -226,17 +282,25 @@ for h, w in zip(header, headerWidth):  # zip is mapping 2 list together to heade
 allTransaction = {}  # create enpty dictionary
 
 
-def updateCsv():
-        with open('savedata.csv', 'w', newline='', encoding='utf-8') as f:
-            fw = csv.writer(f)
-            # set allTransaction as list because write data into csv file need to be list
-            valueAllTransaction = allTransaction.values()  # get only value of object
-            print('valueAllTransaction : ', valueAllTransaction)
+def updateCsv():  # use AllTransaction value to update CSV file
+    with open('savedata.csv', 'w', newline='', encoding='utf-8') as f:
+        fw = csv.writer(f)
+        # set allTransaction as list because write data into csv file need to be list
+        valueAllTransaction = allTransaction.values()  # get only value of object
+        print('valueAllTransaction : ', valueAllTransaction)
 
-            # set imported data as list
-            listAllTransaction = list(valueAllTransaction)
-            # write multiple line [ [],[],[] ]
-            fw.writerows(listAllTransaction)
+        # set imported data as list
+        listAllTransaction = list(valueAllTransaction)
+        # write multiple line [ [],[],[] ]
+        fw.writerows(listAllTransaction)
+
+
+def updateSqlEditedDataByAllTransactionValue():  # use AllTransaction value to update sql file
+    # get data from allTransaction as list
+    data = list(allTransaction.values())
+    for d in data:  # loop list as foreach
+        # update sql by alltransaction data
+        updateSqlData(d[0], d[2], d[3], d[4])
 
 
 def updateTable():  # function for updating table in tab2
@@ -246,16 +310,20 @@ def updateTable():  # function for updating table in tab2
     # Shorthand delete all of old data before insret new data
     resultTable.delete(*resultTable.get_children())
     try:
-        data = read_csv()  # call read csv function
+        data = read_csv()  # show data from csv
+        data = showSqlData()  # show data from sql
         for d in data:  # foreach data in array
             # create transaction data as object
+            # set key of Alltransaction by transaction_id
             # d[0] = transactionid , d[1] = date time, d[2] = item , d[3] = price , d[4] = quantity
-            # This is example off allTransaction
+            # This is example of allTransaction
             #  { 'id1' : {'id1','2022-4-18','นมเปรี้ยว,......}}
-            allTransaction[d[0]] = d
+            # allTransaction[d[0]] = d[1:] # d[0] in CSV is transaction_id d[1:] mean start from key 1 don't get key 0 because key 0 is ID of sqlite but we want key1 which is transaction id
+            allTransaction[d[1
+                             ]] = d[1:]  # d[1] in DB is transaction_id d[1:] mean start from key 1 don't get key 0 because key 0 is ID of sqlite but we want key1 which is transaction id
 
             # insert data to index 0 to table
-            resultTable.insert('', 0, value=d)
+            resultTable.insert('', 0, value=d[1:])
     except Exception as e:
         pass
 
@@ -269,14 +337,16 @@ def deleteData(event=None):
     # get id from selection record ,Return as special ascii
     selectedId = resultTable.selection()
     data = resultTable.item(selectedId)  # get row by id, Return as object
-    id = data['values'][0]  # get key 'values' from object, order0 is pk of object
+    # get key 'values' from object, order0 is pk of object
+    id = data['values'][0]
     transactionId = str(id)
     # delete selected key, value that we get from selected is int
     del allTransaction[transactionId]
-    
+
     check = messagebox.askyesno('Confirm', 'ต้องการลบใช่หรือไม่')
     if check == True:
-        updateCsv()
+        # updateCsv()
+        deleteSqlData(transactionId)
     else:
         pass
     updateTable()
@@ -294,17 +364,17 @@ def menuPopUp(event):  # menu popup list of properties
     rightClick.post(event.x_root, event.y_root)
 # ---- EDIT SECTION ---- #
 
+
 def editData():
     popupEdit = Toplevel()  # คล้ายๆกับ tk แต่จะเพิ่มได้หลายหน้าต่างมากกว่า tk
     popupEdit.title('Edit Record')
     # popupEdit.geometry('500x500')
-    # set popupEdit at center of screen 
+    # set popupEdit at center of screen
     w = 650
     h = 700
 
-    ws = popupEdit.winfo_screenwidth() #screen width
-    hs = popupEdit.winfo_screenheight() #screen height
-
+    ws = popupEdit.winfo_screenwidth()  # screen width
+    hs = popupEdit.winfo_screenheight()  # screen height
 
     x = (ws/2) - (w/2)
     y = (hs/2) - (h/2)
@@ -341,18 +411,21 @@ def editData():
     entryProductQuantity.pack()  # input product quantity
 
     # ---- UPDATE FUNCTION ---- #
-    def updateData():
+    def updateData():  # update data after fill in edited form
 
-        productName = product_name.get()# get data from input
-        productPrice = float(product_price.get())# get data from input
-        productQuantity = int(product_quantity.get())# get data from input
-        print('transactionId ',transactionId)
-        oldData = allTransaction[str(transactionId)] # transactionId come with edit popup
-        newData = [oldData[0],oldData[1],productName,productPrice,productQuantity]
+        productName = product_name.get()  # get data from input
+        productPrice = float(product_price.get())  # get data from input
+        productQuantity = int(product_quantity.get())  # get data from input
+        print('transactionId ', transactionId)
+        # transactionId come with edit popup
+        oldData = allTransaction[str(transactionId)]
+        newData = [oldData[0], oldData[1],
+                   productName, productPrice, productQuantity]
         allTransaction[transactionId] = newData
-        updateCsv() # update csv file
-        updateTable() # update table in program
-        popupEdit.destroy() # close edit popup
+        # updateCsv()  # update csv file
+        updateSqlEditedDataByAllTransactionValue()
+        updateTable()  # update table in program
+        popupEdit.destroy()  # close edit popup
 
     # ---- SAVE BUTTON ---- #
     iconButton1 = PhotoImage(file='image/edit_icon.png')  # get image from pc
@@ -369,9 +442,9 @@ def editData():
     data = data['values']  # get key 'values' from object
 
     transactionId = data[0]
-    product_name.set(data[2]) # set old data for variable
-    product_price.set(data[3]) # set old data for variable
-    product_quantity.set(data[4]) # set old data for variable
+    product_name.set(data[2])  # set old data for variable
+    product_price.set(data[3])  # set old data for variable
+    product_quantity.set(data[4])  # set old data for variable
     popupEdit.mainloop()
 
 
