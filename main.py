@@ -72,7 +72,6 @@ h = 700
 ws = GUI.winfo_screenwidth()  # screen width
 hs = GUI.winfo_screenheight()  # screen height
 
-
 x = (ws/2) - (w/2)
 y = (hs/2) - (h/2)
 
@@ -83,9 +82,8 @@ GUI.geometry(f'{w}x{h}+{x:.0f}+{y:.0f}')
 menuBar = Menu(GUI)  # create Menu Bar for main GUI
 # set menu bar by using menu bar which we've just create
 GUI.config(menu=menuBar)
+
 # ---- FILE MENU ---- #
-
-
 def About():
     messagebox.showinfo('About', 'Hi There')
 
